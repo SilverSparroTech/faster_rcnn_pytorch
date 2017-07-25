@@ -40,12 +40,14 @@ class pascal_voc(imdb):
         self._devkit_path = self._get_default_path() if devkit_path is None \
             else devkit_path
         self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
-        self._classes = ('__background__',  # always index 0
-                         'aeroplane', 'bicycle', 'bird', 'boat',
-                         'bottle', 'bus', 'car', 'cat', 'chair',
-                         'cow', 'diningtable', 'dog', 'horse',
-                         'motorbike', 'person', 'pottedplant',
-                         'sheep', 'sofa', 'train', 'tvmonitor')
+        self._classes = ('__background__','billtotal', 'billnumber', 'billdate', 'billtime', 'merchantcity', 'merchantname', 'merchantlocality')
+
+        # self._classes = ('__background__',  # always index 0
+        #                  'aeroplane', 'bicycle', 'bird', 'boat',
+        #                  'bottle', 'bus', 'car', 'cat', 'chair',
+        #                  'cow', 'diningtable', 'dog', 'horse',
+        #                  'motorbike', 'person', 'pottedplant',
+        #                  'sheep', 'sofa', 'train', 'tvmonitor')
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
         self._image_ext = '.jpg'
         self._image_index = self._load_image_set_index()
@@ -211,6 +213,9 @@ class pascal_voc(imdb):
 
         boxes = np.zeros((num_objs, 4), dtype=np.uint16)
         gt_classes = np.zeros((num_objs), dtype=np.int32)
+        # _ocr_array = []
+        _ocr_array = np.chararray((num_objs),itemsize=10)
+
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
         # "Seg" area for pascal is just the box area
         seg_areas = np.zeros((num_objs), dtype=np.float32)
@@ -220,11 +225,27 @@ class pascal_voc(imdb):
         for ix, obj in enumerate(objs):
             bbox = obj.find('bndbox')
             # Make pixel indexes 0-based
-            x1 = float(bbox.find('xmin').text) - 1
-            y1 = float(bbox.find('ymin').text) - 1
-            x2 = float(bbox.find('xmax').text) - 1
-            y2 = float(bbox.find('ymax').text) - 1
-
+            x1 = float(bbox.find('xmin').text)
+            y1 = float(bbox.find('ymin').text)
+            x2 = float(bbox.find('xmax').text)
+            y2 = float(bbox.find('ymax').text)
+            if (x1 > x2):
+                temp = x2
+                x2 = x1
+                x1 = temp
+            if (y1 > y2):
+                temp = y2
+                y2 = y1
+                y1 = temp
+            if (x1 < 0):
+                x1 = 0
+            if (y1 < 0):
+                y1 = 0
+            if (x2 < 0):
+                x2 = 0
+            if (y2 < 0):
+                y2 = 0
+            ocr = obj.find('ocr').text
             diffc = obj.find('difficult')
             difficult = 0 if diffc == None else int(diffc.text)
             ishards[ix] = difficult
@@ -232,6 +253,7 @@ class pascal_voc(imdb):
             cls = self._class_to_ind[obj.find('name').text.lower().strip()]
             boxes[ix, :] = [x1, y1, x2, y2]
             gt_classes[ix] = cls
+            _ocr_array[ix]= ocr
             overlaps[ix, cls] = 1.0
             seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
 
@@ -239,6 +261,7 @@ class pascal_voc(imdb):
 
         return {'boxes': boxes,
                 'gt_classes': gt_classes,
+                '_ocr_array': _ocr_array,
                 'gt_ishard': ishards,
                 'gt_overlaps': overlaps,
                 'flipped': False,

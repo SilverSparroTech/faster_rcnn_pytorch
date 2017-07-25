@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from utils import crnn as crnn_py
 
 from utils.timer import Timer
 from utils.blob import im_list_to_blob
@@ -171,16 +172,19 @@ class RPN(nn.Module):
 
 
 class FasterRCNN(nn.Module):
-    n_classes = 21
-    classes = np.asarray(['__background__',
-                       'aeroplane', 'bicycle', 'bird', 'boat',
-                       'bottle', 'bus', 'car', 'cat', 'chair',
-                       'cow', 'diningtable', 'dog', 'horse',
-                       'motorbike', 'person', 'pottedplant',
-                       'sheep', 'sofa', 'train', 'tvmonitor'])
+    n_classes = 8
+    # classes = np.asarray(['__background__',
+    #                    'aeroplane', 'bicycle', 'bird', 'boat',
+    #                    'bottle', 'bus', 'car', 'cat', 'chair',
+    #                    'cow', 'diningtable', 'dog', 'horse',
+    #                    'motorbike', 'person', 'pottedplant',
+    #                    'sheep', 'sofa', 'train', 'tvmonitor'])
+    classes = np.asarray(['__background__','billtotal', 'billnumber', 'billdate', 'billtime', 'merchantcity', 'merchantname', 'merchantlocality'])
+
     PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
     SCALES = (600,)
     MAX_SIZE = 1000
+    model_path = '/home/gabbar/netCRNN_9_30000.pth'
 
     def __init__(self, classes=None, debug=False):
         super(FasterRCNN, self).__init__()
@@ -199,8 +203,14 @@ class FasterRCNN(nn.Module):
         # loss
         self.cross_entropy = None
         self.loss_box = None
+        self.cost=None
+        # self.crnn = crnn_py.CRNN(32, 1, 63, 256, 1).cuda()
+        # model_path = '/home/gabbar/netCRNN_9_30000.pth'
+        #
+        # # network.load_net(model_path,self.crnn)
+        # # for log
+        # network.load_net('/home/gabbar/crnn_path/crnn_9.h5', self.crnn)
 
-        # for log
         self.debug = debug
 
     @property
@@ -209,9 +219,9 @@ class FasterRCNN(nn.Module):
         # print self.loss_box
         # print self.rpn.cross_entropy
         # print self.rpn.loss_box
-        return self.cross_entropy + self.loss_box * 10
+        return self.cross_entropy + self.loss_box * 10 +self.cost
 
-    def forward(self, im_data, im_info, gt_boxes=None, gt_ishard=None, dontcare_areas=None):
+    def forward(self, im_data, im_info,gt_ocr,image, gt_boxes=None, gt_ishard=None, dontcare_areas=None):
         features, rois = self.rpn(im_data, im_info, gt_boxes, gt_ishard, dontcare_areas)
 
         if self.training:
@@ -232,8 +242,77 @@ class FasterRCNN(nn.Module):
 
         if self.training:
             self.cross_entropy, self.loss_box = self.build_loss(cls_score, bbox_pred, roi_data)
+        pred_boxes, scores, classes = \
+            self.interpret_faster_rcnn(cls_prob, bbox_pred, rois, im_info, image.shape, min_score=0.00)
+        print classes
+        ocr_batch = []
+        # print gt_boxes[2,4],gt_ocr,classes
+        # os.exit()
+        for i in range(0, 128):
+            a = classes[i]
+            # print a
+            for j in range(gt_boxes.shape[0]):
+                if a == gt_boxes[j, 4]:
+                    # print b,"wow"
 
-        return cls_prob, bbox_pred, rois
+                    ocr_batch.append(gt_ocr[j])
+                    # print text[j],"yohoo"
+                    break
+                if a == 0:
+                    ocr_batch.append('')
+                    break
+
+        # coordi = np.zeros((128, 4))
+        print(ocr_batch)
+        if len(ocr_batch)<128:
+            for i in range(0,128-len(ocr_batch)):
+                ocr_batch.append('')
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # concat=image
+        # concat=cv2.resize(concat, (128, 32), interpolation=cv2.INTER_AREA)
+        # concat = np.expand_dims(concat, axis=0)
+        # concat = np.expand_dims(concat, axis=0)
+        # print("yohoo")
+        count = 0
+        for i in range(0, 128):
+            x = pred_boxes[i][0]
+            y = pred_boxes[i][1]
+            h = pred_boxes[i][2]
+            w = pred_boxes[i][3]
+            # print x,y,h,w,"dims"
+            #		image=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+            #		np.expand_dims(image,axis=0)
+            # if(math.isnan(x)==True or math.isnan(y)==True or math.isnan(w)==True or math.isnan(h)==True):
+            #     continue
+            # print("yoyo")
+            crop = self.crop_Img(image, int(x), int(y), int(w), int(h))
+            # print(crop.shape)
+            #		np.swapaxes(crop,1,2)
+            # print(crop.shape, "crop shape")
+            #		np.swapaxes(crop,0,1)
+            if crop.shape[0] > 0 and crop.shape[1] > 0:
+                crop = cv2.resize(crop, (128, 32), interpolation=cv2.INTER_AREA)
+                cv2.imwrite("image_processed.png", crop)
+                crop = np.expand_dims(crop, axis=0)
+                crop = np.expand_dims(crop, axis=0)
+                if count == 0:
+                    concat = crop
+                else:
+                    concat = np.concatenate((crop, concat), axis=0)
+                count = count + 1
+        crnn = crnn_py.CRNN(32, 1, 63, 256, 1).cuda()
+        # model_path = '/home/gabbar/netCRNN_9_30000.pth'
+
+        # network.load_net(model_path,self.crnn)
+        # for log
+        network.load_net('/home/gabbar/crnn_path/crnn_9.h5', crnn)
+        self.concat = concat
+        self.cost = crnn(self.concat, ocr_batch)
+        # return cls_prob, bbox_pred, rois
+
+    def crop_Img(self, image, x, y, w, h):
+        new_Img = image[y:y + h, x:x + w]
+        return new_Img
 
     def build_loss(self, cls_score, bbox_pred, roi_data):
         # classification loss
@@ -293,12 +372,12 @@ class FasterRCNN(nn.Module):
 
         return rois, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
-    def interpret_faster_rcnn(self, cls_prob, bbox_pred, rois, im_info, im_shape, nms=True, clip=True, min_score=0.0):
+    def interpret_faster_rcnn(self, cls_prob, bbox_pred, rois, im_info, im_shape, nms=False, clip=True, min_score=0.0):
         # find class
         scores, inds = cls_prob.data.max(1)
         scores, inds = scores.cpu().numpy(), inds.cpu().numpy()
 
-        keep = np.where((inds > 0) & (scores >= min_score))
+        keep = np.where(scores >= min_score)
         scores, inds = scores[keep], inds[keep]
 
         # Apply bounding-box regression deltas
@@ -316,7 +395,7 @@ class FasterRCNN(nn.Module):
         if nms and pred_boxes.shape[0] > 0:
             pred_boxes, scores, inds = nms_detections(pred_boxes, scores, 0.3, inds=inds)
 
-        return pred_boxes, scores, self.classes[inds]
+        return pred_boxes, scores, inds
 
     def detect(self, image, thr=0.3):
         im_data, im_scales = self.get_image_blob(image)

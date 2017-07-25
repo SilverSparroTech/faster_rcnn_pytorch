@@ -41,13 +41,24 @@ def save_net(fname, net):
         h5f.create_dataset(k, data=v.cpu().numpy())
 
 
+# def load_net(fname, net):
+#     import h5py
+#     h5f = h5py.File(fname, mode='r')
+#     for k, v in net.state_dict().items():
+#         param = torch.from_numpy(np.asarray(h5f[k]))
+#         v.copy_(param)
 def load_net(fname, net):
     import h5py
+    import numpy as np
     h5f = h5py.File(fname, mode='r')
     for k, v in net.state_dict().items():
-        param = torch.from_numpy(np.asarray(h5f[k]))
-        v.copy_(param)
-
+        # k=k[k.find('.')+1:]
+        k='module.'+k
+        print k,'wazaaat'
+        if k in h5f.keys():
+            param = torch.from_numpy(np.asarray(h5f[k]))
+            # print param,"1"
+            v.copy_(param)
 
 def load_pretrained_npy(faster_rcnn_model, fname):
     params = np.load(fname).item()

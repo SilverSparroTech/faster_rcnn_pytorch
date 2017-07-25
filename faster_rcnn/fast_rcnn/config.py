@@ -6,11 +6,9 @@
 # --------------------------------------------------------
 
 """Fast R-CNN config system.
-
 This file specifies default config options for Fast R-CNN. You should not
 change values in this file. Instead, you should write a config file (in yaml)
 and use cfg_from_file(yaml_file) to load it and override the default options.
-
 Most tools in $ROOT/tools take a --cfg option to specify an override file.
     - See tools/{train,test}_net.py for example code that uses cfg_from_file()
     - See experiments/cfgs/*.yml for example YAML config override files
@@ -33,7 +31,7 @@ cfg = __C
 
 # region proposal network (RPN) or not
 __C.IS_RPN = True
-__C.ANCHOR_SCALES = [8, 16, 32]
+__C.ANCHOR_SCALES =[2,4,8]#[2, 4, 8, 16, 32, 64]
 __C.NCLASSES = 21
 
 # multiscale training and testing
@@ -50,10 +48,10 @@ __C.TRAIN = edict()
 __C.TRAIN.SOLVER = 'Momentum'
 # learning rate
 __C.TRAIN.WEIGHT_DECAY = 0.0005
-__C.TRAIN.LEARNING_RATE = 0.001
+__C.TRAIN.LEARNING_RATE = 0.0001
 __C.TRAIN.MOMENTUM = 0.9
 __C.TRAIN.GAMMA = 0.1
-__C.TRAIN.STEPSIZE = 50000
+__C.TRAIN.STEPSIZE = 60000
 __C.TRAIN.DISPLAY = 10
 __C.TRAIN.LOG_IMAGE_ITERS = 100
 __C.TRAIN.OHEM = False
@@ -78,13 +76,13 @@ __C.TRAIN.SCALES = (600,)
 __C.TRAIN.MAX_SIZE = 1000
 
 # Images to use per minibatch
-__C.TRAIN.IMS_PER_BATCH = 2
+__C.TRAIN.IMS_PER_BATCH = 1
 
 # Minibatch size (number of regions of interest [ROIs])
-__C.TRAIN.BATCH_SIZE = 128
+__C.TRAIN.BATCH_SIZE = 300
 
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
-__C.TRAIN.FG_FRACTION = 0.25
+__C.TRAIN.FG_FRACTION = 0.3
 
 # Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
 __C.TRAIN.FG_THRESH = 0.5
@@ -92,17 +90,17 @@ __C.TRAIN.FG_THRESH = 0.5
 # Overlap threshold for a ROI to be considered background (class = 0 if
 # overlap in [LO, HI))
 __C.TRAIN.BG_THRESH_HI = 0.5
-__C.TRAIN.BG_THRESH_LO = 0.1
+__C.TRAIN.BG_THRESH_LO = 0.0
 
 # Use horizontally-flipped images during training?
-__C.TRAIN.USE_FLIPPED = True
+__C.TRAIN.USE_FLIPPED = False #true
 
 # Train bounding-box regressors
 __C.TRAIN.BBOX_REG = True
 
 # Overlap required between a ROI and ground-truth box in order for that ROI to
 # be used as a bounding-box regression training example
-__C.TRAIN.BBOX_THRESH = 0.5
+__C.TRAIN.BBOX_THRESH = 0.7
 
 # Iterations between snapshots
 __C.TRAIN.SNAPSHOT_ITERS = 5000
@@ -117,27 +115,27 @@ __C.TRAIN.SNAPSHOT_INFIX = ''
 __C.TRAIN.USE_PREFETCH = False
 
 # Normalize the targets (subtract empirical mean, divide by empirical stddev)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS = True
+__C.TRAIN.BBOX_NORMALIZE_TARGETS = False
 # Deprecated (inside weights)
 # used for assigning weights for each coords (x1, y1, w, h)
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # Normalize the targets using "precomputed" (or made up) means and stdevs
 # (BBOX_NORMALIZE_TARGETS must also be True)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = True
+__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = False
 __C.TRAIN.BBOX_NORMALIZE_MEANS = (0.0, 0.0, 0.0, 0.0)
 __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 # faster rcnn dont use pre-generated rois by selective search
 # __C.TRAIN.BBOX_NORMALIZE_STDS = (1, 1, 1, 1)
 
 # Train using these proposals
-__C.TRAIN.PROPOSAL_METHOD = 'selective_search'
+__C.TRAIN.PROPOSAL_METHOD = 'gt'
 
 # Make minibatches from images that have similar aspect ratios (i.e. both
 # tall and thin or both short and wide) in order to avoid wasting computation
 # on zero-padding.
 __C.TRAIN.ASPECT_GROUPING = True
 # preclude rois intersected with dontcare areas above the value
-__C.TRAIN.DONTCARE_AREA_INTERSECTION_HI = 0.5
+__C.TRAIN.DONTCARE_AREA_INTERSECTION_HI = 0.5 #0.7
 __C.TRAIN.PRECLUDE_HARD_SAMPLES = True
 # Use RPN to detect objects
 __C.TRAIN.HAS_RPN = True
@@ -154,9 +152,9 @@ __C.TRAIN.RPN_BATCHSIZE = 256
 # NMS threshold used on RPN proposals
 __C.TRAIN.RPN_NMS_THRESH = 0.7
 # Number of top scoring boxes to keep before apply NMS to RPN proposals
-__C.TRAIN.RPN_PRE_NMS_TOP_N = 12000
+__C.TRAIN.RPN_PRE_NMS_TOP_N = 5000
 # Number of top scoring boxes to keep after applying NMS to RPN proposals
-__C.TRAIN.RPN_POST_NMS_TOP_N = 2000
+__C.TRAIN.RPN_POST_NMS_TOP_N = 800
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 __C.TRAIN.RPN_MIN_SIZE = 16
 # Deprecated (outside weights)
@@ -244,8 +242,10 @@ __C.MODELS_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'models', 'pascal_voc'))
 __C.MATLAB = 'matlab'
 
 # Place outputs under an experiments directory
-__C.EXP_DIR = 'default'
-__C.LOG_DIR = 'default'
+__C.EXP_DIR = 'faster_rcnn_end2end'
+#'default'
+__C.LOG_DIR = 'faster_rcnn_voc'
+#'default'
 
 # Use GPU implementation of non-maximum suppression
 __C.USE_GPU_NMS = True
@@ -257,7 +257,6 @@ __C.GPU_ID = 0
 def get_output_dir(imdb, weights_filename):
     """Return the directory where experimental artifacts are placed.
     If the directory does not exist, it is created.
-
     A canonical path is built using the name from an imdb and a network
     (if not None).
     """

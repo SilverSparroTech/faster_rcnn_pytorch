@@ -11,7 +11,7 @@ import numpy as np
 import numpy.random as npr
 import cv2
 import os
-
+from PIL import Image
 # TODO: make fast_rcnn irrelevant
 # >>>> obsolete, because it depends on sth outside of this project
 from ..fast_rcnn.config import cfg
@@ -21,6 +21,9 @@ from ..utils.blob import prep_im_for_blob, im_list_to_blob
 def get_minibatch(roidb, num_classes):
     """Given a roidb, construct a minibatch sampled from it."""
     num_images = len(roidb)
+    fd = roidb[0]['image']
+    im = Image.open(fd)
+    imagearray = cv2.imread(fd)
     # Sample random scales to use for each image in this batch
     random_scale_inds = npr.randint(0, high=len(cfg.TRAIN.SCALES),
                                     size=num_images)
@@ -34,7 +37,7 @@ def get_minibatch(roidb, num_classes):
     im_blob, im_scales = _get_image_blob(roidb, random_scale_inds)
 
     blobs = {'data': im_blob}
-
+    blobs['image']=imagearray
     if cfg.TRAIN.HAS_RPN:
         assert len(im_scales) == 1, "Single batch only"
         assert len(roidb) == 1, "Single batch only"
@@ -43,6 +46,11 @@ def get_minibatch(roidb, num_classes):
         gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
         gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
         gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
+        print gt_inds.dtype
+
+        gt_ocr = roidb[0]['_ocr_array'][gt_inds]
+        blobs['gt_ocr'] = gt_ocr
+
         blobs['gt_boxes'] = gt_boxes
         blobs['gt_ishard'] = roidb[0]['gt_ishard'][gt_inds]  \
             if 'gt_ishard' in roidb[0] else np.zeros(gt_inds.size, dtype=int)

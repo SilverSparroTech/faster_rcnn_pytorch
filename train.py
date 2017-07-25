@@ -114,13 +114,15 @@ for step in range(start_step, end_step+1):
     # get one batch
     blobs = data_layer.forward()
     im_data = blobs['data']
+    image=blobs['image']
     im_info = blobs['im_info']
     gt_boxes = blobs['gt_boxes']
+    gt_ocr = blobs['gt_ocr']
     gt_ishard = blobs['gt_ishard']
     dontcare_areas = blobs['dontcare_areas']
 
     # forward
-    net(im_data, im_info, gt_boxes, gt_ishard, dontcare_areas)
+    net.forward(im_data, im_info,gt_ocr,image, gt_boxes, gt_ishard, dontcare_areas)
     loss = net.loss + net.rpn.loss
 
     if _DEBUG:
